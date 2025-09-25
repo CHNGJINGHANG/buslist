@@ -62,7 +62,7 @@ def segment_image_with_sliders(image: Image.Image):
 
         for idx, (name, segment) in enumerate(st.session_state.image_segments.items()):
             with cols[idx]:
-                st.image(segment, caption=name, use_column_width=True)
+                st.image(segment, caption=name, use_container_width=True)
                 if st.button("Process as NTU List", key=f"ntu_{name}"):
                     try:
                         names = st.session_state.gemini_ocr.extract_names_from_image(segment)
@@ -1336,4 +1336,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
