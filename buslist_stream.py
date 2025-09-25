@@ -548,8 +548,8 @@ def create_schedule_table():
     
     # Default values
     default_date = upcoming_saturday if today.weekday() < 5 else upcoming_sunday
-    default_time = "0740 hrs"
-    default_pickup_point = "NTU Hall of Residence 8 & 9 Bus Stop"
+    default_time = "0749 hrs"
+    default_pickup_point = "Venture Ave (Jurong East Interchange)"
     default_destinations = ["Venture Ave (Jurong East Interchange)", "SDBA (Singapore Dragon Boat Association)"]
     
     # Form for adding new schedule entry
@@ -753,23 +753,21 @@ def send_schedule_email():
     # Input for recipient's name
     recipient_name = st.text_input("Recipient's Name:", placeholder="Enter recipient's name (e.g., Ms. Ivyna)")
     
-    # Input for sender's name under "Best regards"
-    sender_name = st.text_input("Your Name (for Best regards):", placeholder="Enter your name")
+    # Input for sender's name under "Warm regards"
+    sender_name = st.text_input("Your Name (for Warm regards):", placeholder="Enter your name")
     
     if st.button("📧 Generate Mailto Link", type="primary"):
         if recipient:
             # Generate HTML table
             html_table = generate_schedule_html()
             
-            # Create email body with better formatting
+            # Create email body with the requested structure
             email_body = f"""
-BUS SCHEDULE NTUDB(M)\n
 Dear {recipient_name if recipient_name else 'Recipient'},
-Please find the bus schedule details below:
 
 {html_table}
 
-Best regards\n,
+Warm regards,
 {sender_name if sender_name else 'NTU Dragon Boat (M)'}
             """
             
@@ -1196,5 +1194,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
