@@ -658,8 +658,8 @@ def create_schedule_table():
     
     # Default values
     default_date = upcoming_saturday if today.weekday() < 5 else upcoming_sunday
-    default_time = "0749 hrs"
-    default_pickup_point = "Venture Ave (Jurong East Interchange)"
+    default_time = "0740 hrs"
+    default_pickup_point = "NTU HAll 8 & 9 Bus Stop"
     default_destinations = ["Venture Ave (Jurong East Interchange)", "SDBA (Singapore Dragon Boat Association)"]
     
     # Form for adding new schedule entry
@@ -673,7 +673,7 @@ def create_schedule_table():
         
         with col2:
             departure_time = st.text_input("Departure Time", value=default_time)
-            bus_capacity = st.selectbox("Bus Capacity", ["1 x 20 seater bus", "1 x 40 seater bus", "2 x 20 seater bus"])
+            bus_capacity = st.selectbox("Bus Capacity", ["1 x 20 seater bus", "1 x 40 seater bus"])
             return_time = st.text_input("Return Time", value="NIL")
         
         with col3:
@@ -1336,5 +1336,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
