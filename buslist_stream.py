@@ -661,7 +661,7 @@ def display_schedule_table():
                 st.rerun()
                 
 def generate_schedule_html():
-    """Generate a well-formatted HTML table for email"""
+    """Generate a well-formatted HTML table for email with borders"""
     if not st.session_state.schedule_data:
         return ""
     
@@ -672,12 +672,12 @@ def generate_schedule_html():
             width: 100%;
         }
         th, td {
-            border: 1px solid black;
+            border: 1px solid black; /* Add borders to all cells */
             padding: 8px;
             text-align: left;
         }
         th {
-            background-color: #f2f2f2;
+            background-color: #f2f2f2; /* Light gray background for headers */
         }
     </style>
     <table>
@@ -754,7 +754,7 @@ BUS SCHEDULE NTUDB(M)
 {html_table}
 
 Best regards,
-{sender_name if sender_name else 'NTU Dragon Boat (M)'}
+{sender_name if sender_name else '\n NTU Dragon Boat (M)'}
             """
             
             # Encode the mailto link
