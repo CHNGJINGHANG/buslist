@@ -619,7 +619,7 @@ def create_schedule_table():
                 st.session_state.schedule_data.append(new_entry)
                 st.success(f"Schedule added for {new_entry['date']} ({new_entry['day']})!")
                 st.rerun()
-                
+
 def display_schedule_table():
     """Display the schedule in table format"""
     if not st.session_state.schedule_data:
@@ -770,13 +770,18 @@ def send_schedule_email():
             
             # Create email body with the requested structure
             email_body = f"""
-Dear {recipient_name if recipient_name else 'Recipient'},\n
-\n
-The Bus Schedule for NTU Dragon Boat (M) is as follows:\n
-{html_table}\n
-\n
-Thank you for your support!\n
-Warm regards,\n
+            
+Dear {recipient_name if recipient_name else 'Recipient'},
+
+The Bus Schedule for NTU Dragon Boat (M) is as follows:
+
+
+{html_table}
+
+
+Thank you for your support!
+
+Warm regards,
 {sender_name if sender_name else 'NTU Dragon Boat (M)'}
             """
             
