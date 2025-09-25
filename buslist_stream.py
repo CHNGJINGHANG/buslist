@@ -661,13 +661,27 @@ def display_schedule_table():
                 st.rerun()
                 
 def generate_schedule_html():
-    """Generate HTML table for email"""
+    """Generate a well-formatted HTML table for email"""
     if not st.session_state.schedule_data:
         return ""
     
     html = """
-    <table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; width: 100%;">
-        <tr style="background-color: #f2f2f2;">
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+    <table>
+        <tr>
             <th>Date (2025)</th>
             <th>Activity</th>
             <th>Pick-Up Point</th>
@@ -725,6 +739,9 @@ def send_schedule_email():
     with col2:
         cc_email = st.text_input("CC Email (Optional)")
     
+    # Input for sender's name under "Best regards"
+    sender_name = st.text_input("Your Name (for Best regards):", placeholder="Enter your name")
+    
     if st.button("📧 Generate Mailto Link", type="primary"):
         if recipient:
             # Generate HTML table
@@ -736,7 +753,7 @@ def send_schedule_email():
 {html_table}
 
 Best regards,
-NTU Dragon Boat (M)"""
+{sender_name if sender_name else 'NTU Dragon Boat (M)'}"""
             
             # Encode the mailto link
             mailto_link = f"mailto:{recipient}?subject={urllib.parse.quote(subject)}"
@@ -749,7 +766,7 @@ NTU Dragon Boat (M)"""
             st.success("Mailto link generated! Click the link above to open your email client.")
         else:
             st.warning("Please enter a recipient email address.")
-            
+
 def manage_recipient_emails():
     """Manage recipient email list"""
     st.subheader("Manage Recipient Emails")
