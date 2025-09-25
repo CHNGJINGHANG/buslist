@@ -701,8 +701,8 @@ def generate_schedule_html():
     return html
 
 def send_schedule_email():
-    """Generate email content for mobile-friendly download"""
-    st.subheader("Email via Mobile-Friendly Download")
+    """Generate email content using mailto links for cross-platform compatibility"""
+    st.subheader("Email via Mailto Link")
     
     # Add subject definition
     subject = "NTUDB(M) Bus Schedule"
@@ -717,7 +717,7 @@ def send_schedule_email():
                 st.session_state.email_config['recipient_list'],
                 default=st.session_state.email_config['recipient_list']
             )
-            recipient = ', '.join(selected_recipients)  # Join multiple emails
+            recipient = ','.join(selected_recipients)  # Join multiple emails
         else:
             recipient = st.text_input("Recipient Email (or manage recipients below)")
             st.info("No saved recipients. Add some below or enter manually above.")
@@ -725,7 +725,7 @@ def send_schedule_email():
     with col2:
         cc_email = st.text_input("CC Email (Optional)")
     
-    if st.button("📧 Generate Email File", type="primary"):
+    if st.button("📧 Generate Mailto Link", type="primary"):
         if recipient:
             # Generate HTML table
             html_table = generate_schedule_html()
@@ -738,27 +738,18 @@ def send_schedule_email():
 Best regards,
 NTU Dragon Boat (M)"""
             
-            # Create .eml file content
-            eml_content = f"""From: {st.session_state.email_config['email']}
-To: {recipient}
-Cc: {cc_email if cc_email else ''}
-Subject: {subject}
-Content-Type: text/html; charset="utf-8"
-
-{email_body}
-"""
-            # Provide .eml file for download
-            st.download_button(
-                label="📥 Download Email File",
-                data=eml_content,
-                file_name="bus_schedule.eml",
-                mime="message/rfc822"
-            )
+            # Encode the mailto link
+            mailto_link = f"mailto:{recipient}?subject={urllib.parse.quote(subject)}"
+            if cc_email:
+                mailto_link += f"&cc={urllib.parse.quote(cc_email)}"
+            mailto_link += f"&body={urllib.parse.quote(email_body)}"
             
-            st.success("Email file generated! Download and open it in your email client.")
+            # Display the mailto link
+            st.markdown(f'[📧 Click here to open your email client](<{mailto_link}>)', unsafe_allow_html=True)
+            st.success("Mailto link generated! Click the link above to open your email client.")
         else:
             st.warning("Please enter a recipient email address.")
-
+            
 def manage_recipient_emails():
     """Manage recipient email list"""
     st.subheader("Manage Recipient Emails")
