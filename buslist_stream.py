@@ -7,6 +7,11 @@ import io
 from typing import List, Dict
 import requests
 import json
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import pandas as pd
+import urllib.parse
 
 class GeminiOCR:
     """Gemini API-powered OCR and text extraction"""
@@ -483,6 +488,17 @@ def initialize_session_state():
     
     if 'fallback_processor' not in st.session_state:
         st.session_state.fallback_processor = SmartTextProcessor()
+    if 'schedule_data' not in st.session_state:
+        st.session_state.schedule_data = []
+
+    if 'email_config' not in st.session_state:
+        st.session_state.email_config = {
+            'smtp_server': 'outlook.live.com',
+            'smtp_port': 587,
+            'email': '',
+            'password': '',
+            'recipient_list': []  # Changed to list for multiple recipients
+        }
 
 def format_bus_info(settings):
     """Format the bus information"""
@@ -521,6 +537,270 @@ def format_bus_info(settings):
         
     return output
 
+def create_schedule_table():
+    """Create and manage bus schedule table"""
+    st.subheader("Bus Schedule Management")
+    
+    # Form for adding new schedule entry
+    with st.form("schedule_form"):
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            date = st.date_input("Date")
+            activity = st.text_input("Activity", value="Dragon Boat (M)")
+            pickup_point = st.text_input("Pick-Up Point", value="NTU Hall of Residence 8 & 9 Bus Stop")
+        
+        with col2:
+            departure_time = st.text_input("Departure Time", value="0800 hrs")
+            bus_capacity = st.selectbox("Bus Capacity", ["1 x 20 seater bus", "1 x 40 seater bus", "2 x 20 seater bus"])
+            return_time = st.text_input("Return Time", value="NIL")
+        
+        with col3:
+            contact_name = st.text_input("Contact Name")
+            contact_number = st.text_input("Contact Number")
+            
+        # Destinations section with unique keys
+        st.subheader("Destinations")
+        destinations = []
+
+        # Add unique key to number_input
+        num_destinations = st.number_input(
+            "Number of Destinations", 
+            min_value=1, 
+            max_value=5, 
+            value=1,
+            key="num_dest_input"  # Added unique key
+        )
+
+        for i in range(num_destinations):
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                dest = st.text_input(f"Destination {i+1}", key=f"dest_{i}")
+                destinations.append(dest) if dest else None
+            with col2:
+                if dest:
+                    maps_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(dest)}"
+                    st.markdown(f'<a href="{maps_url}" target="_blank">📍 Open Maps</a>', unsafe_allow_html=True)
+        
+        # Add form submit button
+        submitted = st.form_submit_button("Add to Schedule")
+        
+        if submitted:
+            new_entry = {
+                'date': date.strftime("%d/%m/%Y"),
+                'day': date.strftime("%A").upper(),
+                'activity': activity,
+                'pickup_point': pickup_point,
+                'departure_time': departure_time,
+                'destinations': destinations,
+                'return_time': return_time,
+                'contact_name': contact_name,
+                'contact_number': contact_number,
+                'bus_capacity': bus_capacity
+            }
+            st.session_state.schedule_data.append(new_entry)
+            st.success("Schedule entry added!")
+            st.rerun()
+
+def display_schedule_table():
+    """Display the schedule in table format"""
+    if not st.session_state.schedule_data:
+        st.info("No schedule entries yet.")
+        return
+    
+    # Create DataFrame for better display
+    display_data = []
+    for entry in st.session_state.schedule_data:
+        # Format destinations with Google Maps links
+        destinations_str = ""
+        for i, dest in enumerate(entry['destinations']):
+            maps_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(dest)}"
+            destinations_str += f"{i+1}. {dest} [📍]({maps_url})\n"
+        
+        display_data.append({
+            'Date': f"{entry['date']}\n{entry['day']}",
+            'Activity': entry['activity'],
+            'Pick-Up Point': entry['pickup_point'],
+            'Departure Time': entry['departure_time'],
+            'Destination': destinations_str,
+            'Return Time': entry['return_time'],
+            'Name & Contact': f"{entry['contact_name']}\n{entry['contact_number']}",
+            'Seats': entry['bus_capacity']
+        })
+    
+    df = pd.DataFrame(display_data)
+    
+    # Display table with height based on number of rows (40px per row + 60px header)
+    num_rows = len(display_data)
+    table_height = min(400, max(150, (num_rows * 40) + 60))
+    
+    # Use st.dataframe to display the table
+    st.dataframe(
+        df,
+        height=table_height,
+        width=True,
+        use_container_width=True
+    )
+    
+    # Add removal functionality
+    st.subheader("Remove Schedule Entry")
+    if len(st.session_state.schedule_data) > 0:
+        selected_index = st.selectbox(
+            "Select entry to remove:",
+            range(len(st.session_state.schedule_data)),
+            format_func=lambda x: f"Entry {x+1}: {st.session_state.schedule_data[x]['date']} - {st.session_state.schedule_data[x]['activity']}"
+        )
+        
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.info(f"Selected: {st.session_state.schedule_data[selected_index]['date']} - {st.session_state.schedule_data[selected_index]['activity']}")
+        with col2:
+            if st.button("🗑️ Remove Entry", type="secondary"):
+                st.session_state.schedule_data.pop(selected_index)
+                st.success("Entry removed successfully!")
+                st.rerun()
+                
+def generate_schedule_html():
+    """Generate HTML table for email"""
+    if not st.session_state.schedule_data:
+        return ""
+    
+    html = """
+    <table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; width: 100%;">
+        <tr style="background-color: #f2f2f2;">
+            <th>Date (2025)</th>
+            <th>Activity</th>
+            <th>Pick-Up Point</th>
+            <th>Departure Time</th>
+            <th>Destination</th>
+            <th>Return Time</th>
+            <th>Name & Contact No. of I/C</th>
+            <th>Seats</th>
+            <th>Price</th>
+        </tr>
+    """
+    
+    for entry in st.session_state.schedule_data:
+        destinations_html = "<br>".join([f"{i+1}. {dest}" for i, dest in enumerate(entry['destinations'])])
+        
+        html += f"""
+        <tr>
+            <td>{entry['date']}<br>{entry['day']}</td>
+            <td>{entry['activity']}</td>
+            <td>{entry['pickup_point']}</td>
+            <td>{entry['departure_time']}</td>
+            <td>{destinations_html}</td>
+            <td>{entry['return_time']}</td>
+            <td>{entry['contact_name']},<br>{entry['contact_number']}</td>
+            <td>{entry['bus_capacity']}</td>
+            <td></td>
+        </tr>
+        """
+    
+    html += "</table>"
+    return html
+
+def send_schedule_email():
+    """Generate email content for mobile-friendly download"""
+    st.subheader("Email via Mobile-Friendly Download")
+    
+    # Add subject definition
+    subject = "NTUDB(M) Bus Schedule"
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Show recipient selection
+        if st.session_state.email_config['recipient_list']:
+            selected_recipients = st.multiselect(
+                "Select Recipients:", 
+                st.session_state.email_config['recipient_list'],
+                default=st.session_state.email_config['recipient_list']
+            )
+            recipient = ', '.join(selected_recipients)  # Join multiple emails
+        else:
+            recipient = st.text_input("Recipient Email (or manage recipients below)")
+            st.info("No saved recipients. Add some below or enter manually above.")
+    
+    with col2:
+        cc_email = st.text_input("CC Email (Optional)")
+    
+    if st.button("📧 Generate Email File", type="primary"):
+        if recipient:
+            # Generate HTML table
+            html_table = generate_schedule_html()
+            
+            # Create email body
+            email_body = f"""BUS SCHEDULE NTUDB(M)
+
+{html_table}
+
+Best regards,
+NTU Dragon Boat (M)"""
+            
+            # Create .eml file content
+            eml_content = f"""From: {st.session_state.email_config['email']}
+To: {recipient}
+Cc: {cc_email if cc_email else ''}
+Subject: {subject}
+Content-Type: text/html; charset="utf-8"
+
+{email_body}
+"""
+            # Provide .eml file for download
+            st.download_button(
+                label="📥 Download Email File",
+                data=eml_content,
+                file_name="bus_schedule.eml",
+                mime="message/rfc822"
+            )
+            
+            st.success("Email file generated! Download and open it in your email client.")
+        else:
+            st.warning("Please enter a recipient email address.")
+
+def manage_recipient_emails():
+    """Manage recipient email list"""
+    st.subheader("Manage Recipient Emails")
+    
+    # Add new recipient
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        new_email = st.text_input("Add Recipient Email:", placeholder="example@email.com")
+    with col2:
+        if st.button("Add Email"):
+            if new_email and '@' in new_email:
+                if new_email not in st.session_state.email_config['recipient_list']:
+                    st.session_state.email_config['recipient_list'].append(new_email)
+                    st.success(f"Added: {new_email}")
+                    st.rerun()
+                else:
+                    st.warning("Email already exists in list")
+            else:
+                st.warning("Please enter a valid email address")
+    
+    # Display and manage existing recipients
+    if st.session_state.email_config['recipient_list']:
+        st.write("**Current Recipients:**")
+        
+        for i, email in enumerate(st.session_state.email_config['recipient_list']):
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                st.text(f"{i+1}. {email}")
+            with col2:
+                if st.button("Remove", key=f"remove_email_{i}"):
+                    st.session_state.email_config['recipient_list'].remove(email)
+                    st.success(f"Removed: {email}")
+                    st.rerun()
+        
+        # Clear all button
+        if st.button("Clear All Recipients"):
+            st.session_state.email_config['recipient_list'] = []
+            st.success("All recipients cleared")
+            st.rerun()
+    else:
+        st.info("No recipient emails added yet")
+
 def main():
     st.set_page_config(
         page_title="Bus Passenger List Manager",
@@ -537,7 +817,7 @@ def main():
     # Sidebar for navigation
     st.sidebar.title("Navigation")
     tab = st.sidebar.radio("Choose Section:", 
-                          ["🔑 API Setup", "📝 Input & Processing", "⚙️ Bus Settings", "📋 Generated Output"])
+                          ["🔑 API Setup", "📝 Input & Processing", "⚙️ Bus Settings", "📋 Generated Output","📅Bus Schedule"])
     
     if tab == "🔑 API Setup":
         st.header("🔑 Gemini API Configuration")
@@ -841,7 +1121,35 @@ def main():
                 
                 with col_summary3:
                     st.metric("JE Passengers", len(st.session_state.bus_list['Jurong East']))
-    
+
+    elif tab == "📅Bus Schedule":
+        st.header("Bus Schedule Management")
+        
+        tab_schedule = st.tabs(["Create Schedule", "View Table", "Send Email"])
+        
+        with tab_schedule[0]:
+            create_schedule_table()
+        
+        with tab_schedule[1]:
+            st.subheader("Current Schedule")
+            display_schedule_table()
+            
+            if st.session_state.schedule_data:
+                # Clear schedule button
+                if st.button("Clear All Schedule", type="secondary"):
+                    st.session_state.schedule_data = []
+                    st.rerun()
+        
+        with tab_schedule[2]:
+            # Add recipient management
+            manage_recipient_emails()
+            
+            st.markdown("---")
+            
+            if st.session_state.schedule_data:
+                send_schedule_email()
+            else:
+                st.warning("No schedule data to send. Please create schedule entries first.")
     # Sidebar status
     st.sidebar.markdown("---")
     st.sidebar.subheader("Status")
