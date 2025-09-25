@@ -548,7 +548,7 @@ def create_schedule_table():
     
     # Default values
     default_date = upcoming_saturday if today.weekday() < 5 else upcoming_sunday
-    default_time = "0749 hrs"
+    default_time = "0740 hrs"
     default_pickup_point = "NTU Hall of Residence 8 & 9 Bus Stop"
     default_destinations = ["Venture Ave (Jurong East Interchange)", "SDBA (Singapore Dragon Boat Association)"]
     
@@ -1196,4 +1196,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
