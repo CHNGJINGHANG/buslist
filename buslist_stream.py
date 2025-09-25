@@ -747,13 +747,15 @@ def send_schedule_email():
             # Generate HTML table
             html_table = generate_schedule_html()
             
-            # Create email body
-            email_body = f"""BUS SCHEDULE NTUDB(M)
+            # Create email body with better formatting
+            email_body = f"""
+BUS SCHEDULE NTUDB(M)
 
 {html_table}
 
 Best regards,
-{sender_name if sender_name else 'NTU Dragon Boat (M)'}"""
+{sender_name if sender_name else 'NTU Dragon Boat (M)'}
+            """
             
             # Encode the mailto link
             mailto_link = f"mailto:{recipient}?subject={urllib.parse.quote(subject)}"
@@ -764,6 +766,9 @@ Best regards,
             # Display the mailto link
             st.markdown(f'[📧 Click here to open your email client](<{mailto_link}>)', unsafe_allow_html=True)
             st.success("Mailto link generated! Click the link above to open your email client.")
+            
+            # Add instructions to open the email app
+            st.info("📱 After clicking the link, if the email app does not open automatically, please open your email app manually to send the message.")
         else:
             st.warning("Please enter a recipient email address.")
 
