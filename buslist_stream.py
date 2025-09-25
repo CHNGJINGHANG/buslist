@@ -14,7 +14,6 @@ import pandas as pd
 import urllib.parse
 from PIL import Image, ImageDraw
 import numpy as np
-from streamlit_drawable_canvas import st_canvas
 
 # filepath: c:\Users\jmqs4\OneDrive\Documents\Dragon_Boat\BUSFUNCTION\buslist_stream.py
 
@@ -1337,3 +1336,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
