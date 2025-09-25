@@ -541,23 +541,34 @@ def create_schedule_table():
     """Create and manage bus schedule table"""
     st.subheader("Bus Schedule Management")
     
+    # Calculate the upcoming Saturday and Sunday
+    today = datetime.now()
+    upcoming_saturday = today + timedelta((5 - today.weekday()) % 7)  # 5 = Saturday
+    upcoming_sunday = today + timedelta((6 - today.weekday()) % 7)  # 6 = Sunday
+    
+    # Default values
+    default_date = upcoming_saturday if today.weekday() < 5 else upcoming_sunday
+    default_time = "0749 hrs"
+    default_pickup_point = "Venture Ave (Jurong East Interchange)"
+    default_destinations = ["Venture Ave (Jurong East Interchange)", "SDBA (Singapore Dragon Boat Association)"]
+    
     # Form for adding new schedule entry
     with st.form("schedule_form"):
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            date = st.date_input("Date")
+            date = st.date_input("Date", value=default_date)
             activity = st.text_input("Activity", value="Dragon Boat (M)")
-            pickup_point = st.text_input("Pick-Up Point", value="NTU Hall of Residence 8 & 9 Bus Stop")
+            pickup_point = st.text_input("Pick-Up Point", value=default_pickup_point)
         
         with col2:
-            departure_time = st.text_input("Departure Time", value="0800 hrs")
+            departure_time = st.text_input("Departure Time", value=default_time)
             bus_capacity = st.selectbox("Bus Capacity", ["1 x 20 seater bus", "1 x 40 seater bus", "2 x 20 seater bus"])
             return_time = st.text_input("Return Time", value="NIL")
         
         with col3:
-            contact_name = st.text_input("Contact Name")
-            contact_number = st.text_input("Contact Number")
+            contact_name = st.text_input("Contact Name", value="Jing Hang")
+            contact_number = st.text_input("Contact Number", value="88479136")
             
         # Destinations section with unique keys
         st.subheader("Destinations")
@@ -568,14 +579,14 @@ def create_schedule_table():
             "Number of Destinations", 
             min_value=1, 
             max_value=5, 
-            value=1,
+            value=len(default_destinations),
             key="num_dest_input"  # Added unique key
         )
 
         for i in range(num_destinations):
             col1, col2 = st.columns([3, 1])
             with col1:
-                dest = st.text_input(f"Destination {i+1}", key=f"dest_{i}")
+                dest = st.text_input(f"Destination {i+1}", value=default_destinations[i] if i < len(default_destinations) else "", key=f"dest_{i}")
                 destinations.append(dest) if dest else None
             with col2:
                 if dest:
