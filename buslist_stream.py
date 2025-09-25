@@ -769,21 +769,19 @@ def send_schedule_email():
             html_table = generate_schedule_html()
             
             # Create email body with the requested structure
-            email_body = f"""
-            
-Dear {recipient_name if recipient_name else 'Recipient'},
-
-The Bus Schedule for NTU Dragon Boat (M) is as follows:
-
-
-{html_table}
-
-
-Thank you for your support!
-
-Warm regards,
-{sender_name if sender_name else 'NTU Dragon Boat (M)'}
-            """
+            # Create email body with explicit newlines
+            email_body = (
+                f"Dear {recipient_name if recipient_name else 'Recipient'},\n"
+                f"\n"
+                f"The Bus Schedule for NTU Dragon Boat (M) is as follows:\n"
+                f"\n"
+                f"{html_table}\n"
+                f"\n"
+                f"Thank you for your support!\n"
+                f"\n"
+                f"Warm regards,\n"
+                f"{sender_name if sender_name else 'NTU Dragon Boat (M)'}"
+            )
             
             # Encode the mailto link
             mailto_link = f"mailto:{recipient}?subject={urllib.parse.quote(subject)}"
