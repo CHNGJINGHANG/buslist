@@ -597,6 +597,7 @@ def create_schedule_table():
         submitted = st.form_submit_button("Add to Schedule")
         
         if submitted:
+            # Create a new entry
             new_entry = {
                 'date': date.strftime("%d/%m/%Y"),
                 'day': date.strftime("%A").upper(),
@@ -609,10 +610,16 @@ def create_schedule_table():
                 'contact_number': contact_number,
                 'bus_capacity': bus_capacity
             }
-            st.session_state.schedule_data.append(new_entry)
-            st.success("Schedule entry added!")
-            st.rerun()
-
+            
+            # Check for duplicates
+            if new_entry in st.session_state.schedule_data:
+                st.warning(f"Schedule for {new_entry['date']} ({new_entry['day']}) already exists!")
+            else:
+                # Add the new entry to the schedule
+                st.session_state.schedule_data.append(new_entry)
+                st.success(f"Schedule added for {new_entry['date']} ({new_entry['day']})!")
+                st.rerun()
+                
 def display_schedule_table():
     """Display the schedule in table format"""
     if not st.session_state.schedule_data:
