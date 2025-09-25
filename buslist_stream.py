@@ -12,7 +12,82 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import pandas as pd
 import urllib.parse
+from PIL import Image, ImageDraw
+import numpy as np
+from streamlit_drawable_canvas import st_canvas
 
+# filepath: c:\Users\jmqs4\OneDrive\Documents\Dragon_Boat\BUSFUNCTION\buslist_stream.py
+
+def segment_image_with_sliders(image: Image.Image):
+    """Allow users to manually define ROI using sliders for segmentation."""
+    st.subheader("Segment Image with Sliders")
+
+    # Ensure the image is a PIL.Image object
+    if isinstance(image, np.ndarray):
+        image = Image.fromarray(image)
+
+    # Get image dimensions
+    width, height = image.size
+
+    # Display the original image
+    st.image(image, caption="Original Image", use_container_width=True)
+
+    # Create sliders for ROI selection
+    st.write("Adjust the sliders to define the region of interest (ROI):")
+    x1 = st.slider("X1 (Left)", 0, width, 0)
+    x2 = st.slider("X2 (Right)", 0, width, width)
+    y1 = st.slider("Y1 (Top)", 0, height, 0)
+    y2 = st.slider("Y2 (Bottom)", 0, height, height)
+
+    # Ensure valid ROI coordinates
+    if x2 > x1 and y2 > y1:
+        # Crop the image based on the selected ROI
+        cropped_image = image.crop((x1, y1, x2, y2))
+
+        # Display the cropped region
+        st.image(cropped_image, caption="Cropped Region", use_container_width=True)
+
+        # Save the cropped region
+        region_name = st.text_input("Region Name", placeholder="e.g., NTU List, JE List, Bus Info")
+        if st.button("Save Region"):
+            if "image_segments" not in st.session_state:
+                st.session_state.image_segments = {}
+            st.session_state.image_segments[region_name] = cropped_image
+            st.success(f"Saved region: {region_name}")
+            st.rerun()
+
+    # Display saved regions side by side
+    if "image_segments" in st.session_state and st.session_state.image_segments:
+        st.subheader("Saved Regions")
+        cols = st.columns(len(st.session_state.image_segments))  # Create columns dynamically
+
+        for idx, (name, segment) in enumerate(st.session_state.image_segments.items()):
+            with cols[idx]:
+                st.image(segment, caption=name, use_column_width=True)
+                if st.button("Process as NTU List", key=f"ntu_{name}"):
+                    try:
+                        names = st.session_state.gemini_ocr.extract_names_from_image(segment)
+                        for name in names:
+                            if name not in st.session_state.bus_list["NTU"]:
+                                st.session_state.bus_list["NTU"].append(name)
+                        st.success(f"Added {len(names)} names to NTU list")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+                if st.button("Process as JE List", key=f"je_{name}"):
+                    try:
+                        names = st.session_state.gemini_ocr.extract_names_from_image(segment)
+                        for name in names:
+                            if name not in st.session_state.bus_list["Jurong East"]:
+                                st.session_state.bus_list["Jurong East"].append(name)
+                        st.success(f"Added {len(names)} names to JE list")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+                if st.button("🗑️ Delete Region", key=f"delete_{name}"):
+                    del st.session_state.image_segments[name]
+                    st.success(f"Deleted region: {name}")
+                    st.rerun()
 class GeminiOCR:
     """Gemini API-powered OCR and text extraction"""
     
@@ -24,7 +99,43 @@ class GeminiOCR:
     def set_api_key(self, api_key: str):
         """Set the Gemini API key"""
         self.api_key = api_key
-    
+
+        # Display saved segments
+        if 'image_segments' in st.session_state and st.session_state.image_segments:
+            st.subheader("Saved Regions")
+            
+            for name, segment in st.session_state.image_segments.items():
+                cols = st.columns([2, 1, 1])
+                with cols[0]:
+                    st.image(segment, caption=name, use_container_width=True)
+                with cols[1]:
+                    if st.button("Process as NTU List", key=f"ntu_{name}"):
+                        try:
+                            names = st.session_state.gemini_ocr.extract_names_from_image(segment)
+                            for name in names:
+                                if name not in st.session_state.bus_list['NTU']:
+                                    st.session_state.bus_list['NTU'].append(name)
+                            st.success(f"Added {len(names)} names to NTU list")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                with cols[2]:
+                    if st.button("Process as JE List", key=f"je_{name}"):
+                        try:
+                            names = st.session_state.gemini_ocr.extract_names_from_image(segment)
+                            for name in names:
+                                if name not in st.session_state.bus_list['Jurong East']:
+                                    st.session_state.bus_list['Jurong East'].append(name)
+                            st.success(f"Added {len(names)} names to JE list")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                
+                # Add delete button
+                if st.button("🗑️ Delete Region", key=f"delete_{name}"):
+                    del st.session_state.image_segments[name]
+                    st.success(f"Deleted region: {name}")
+                    st.rerun()    
     def extract_names_from_image(self, image: Image.Image) -> List[str]:
         """Extract passenger names from image using Gemini Vision API"""
         if not self.api_key:
@@ -548,7 +659,7 @@ def create_schedule_table():
     
     # Default values
     default_date = upcoming_saturday if today.weekday() < 5 else upcoming_sunday
-    default_time = "0740 hrs"
+    default_time = "0749 hrs"
     default_pickup_point = "Venture Ave (Jurong East Interchange)"
     default_destinations = ["Venture Ave (Jurong East Interchange)", "SDBA (Singapore Dragon Boat Association)"]
     
@@ -855,8 +966,15 @@ def main():
     
     # Sidebar for navigation
     st.sidebar.title("Navigation")
+    # In the main() function, update the navigation options
     tab = st.sidebar.radio("Choose Section:", 
-                          ["🔑 API Setup", "📝 Input & Processing", "⚙️ Bus Settings", "📋 Generated Output","📅Bus Schedule"])
+                        ["🔑 API Setup", 
+                        "📝 Input & Processing",
+                        "⚙️ Bus Settings", 
+                        "📋 Generated Output",
+                        "📅Bus Schedule"])
+
+
     
     if tab == "🔑 API Setup":
         st.header("🔑 Gemini API Configuration")
@@ -922,19 +1040,32 @@ def main():
         location = st.selectbox("Add passengers to:", ["NTU", "Jurong East"], key="main_assign")
         
         # Image upload
+# In the "📝 Input & Processing" section
+# Replace the image upload section with:
+
+        # Image upload and processing
         uploaded_file = st.file_uploader("Upload passenger list image", type=['jpg', 'jpeg', 'png'])
-        if uploaded_file and st.button("Process Image", type="primary"):
+        if uploaded_file:
             image = Image.open(uploaded_file)
-            try:
-                if st.session_state.api_key:
-                    names = st.session_state.gemini_ocr.extract_names_from_image(image)
-                    for name in names:
-                        if name not in st.session_state.bus_list[location]:
-                            st.session_state.bus_list[location].append(name)
-                    st.success(f"Added {len(names)} names to {location}")
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Error: {e}")
+            
+            # Add tabs for direct processing vs segmentation
+            tab1, tab2 = st.tabs(["Direct Processing", "Image Segmentation"])
+            
+            with tab1:
+                if st.button("Process Entire Image", type="primary"):
+                    try:
+                        if st.session_state.api_key:
+                            names = st.session_state.gemini_ocr.extract_names_from_image(image)
+                            for name in names:
+                                if name not in st.session_state.bus_list[location]:
+                                    st.session_state.bus_list[location].append(name)
+                            st.success(f"Added {len(names)} names to {location}")
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+            
+            with tab2:
+                segment_image_with_sliders(image)
         
         # Text input
         text_input = st.text_area("Or paste names here:")
@@ -1034,7 +1165,7 @@ def main():
                                     st.warning("Name already exists")
                 else:
                     st.write("No passengers added yet")
-
+                    
     elif tab == "⚙️ Bus Settings":
         st.header("⚙️ Bus Settings")
         
@@ -1206,4 +1337,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
