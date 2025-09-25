@@ -763,11 +763,13 @@ def send_schedule_email():
             
             # Create email body with the requested structure
             email_body = f"""
-Dear {recipient_name if recipient_name else 'Recipient'},
-
-{html_table}
-
-Warm regards,
+Dear {recipient_name if recipient_name else 'Recipient'},\n
+\n
+The Bus Schedule for NTU Dragon Boat (M) is as follows:\n
+{html_table}\n
+\n
+Thank you for your support!\n
+Warm regards,\n
 {sender_name if sender_name else 'NTU Dragon Boat (M)'}
             """
             
