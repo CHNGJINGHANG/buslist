@@ -739,6 +739,9 @@ def send_schedule_email():
     with col2:
         cc_email = st.text_input("CC Email (Optional)")
     
+    # Input for recipient's name
+    recipient_name = st.text_input("Recipient's Name:", placeholder="Enter recipient's name (e.g., Ms. Ivyna)")
+    
     # Input for sender's name under "Best regards"
     sender_name = st.text_input("Your Name (for Best regards):", placeholder="Enter your name")
     
@@ -749,12 +752,14 @@ def send_schedule_email():
             
             # Create email body with better formatting
             email_body = f"""
-BUS SCHEDULE NTUDB(M)
+BUS SCHEDULE NTUDB(M)\n
+Dear {recipient_name if recipient_name else 'Recipient'},
+Please find the bus schedule details below:
 
 {html_table}
 
-Best regards,
-{sender_name if sender_name else '\n NTU Dragon Boat (M)'}
+Best regards\n,
+{sender_name if sender_name else 'NTU Dragon Boat (M)'}
             """
             
             # Encode the mailto link
