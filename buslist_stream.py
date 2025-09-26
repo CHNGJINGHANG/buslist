@@ -92,49 +92,13 @@ class GeminiOCR:
     
     def __init__(self, api_key: str = ""):
         self.api_key = api_key
-        self.vision_api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
-        self.text_api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+        self.vision_api_url = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
+        self.text_api_url = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
     
     def set_api_key(self, api_key: str):
         """Set the Gemini API key"""
         self.api_key = api_key
 
-        # Display saved segments
-        if 'image_segments' in st.session_state and st.session_state.image_segments:
-            st.subheader("Saved Regions")
-            
-            for name, segment in st.session_state.image_segments.items():
-                cols = st.columns([2, 1, 1])
-                with cols[0]:
-                    st.image(segment, caption=name, use_container_width=True)
-                with cols[1]:
-                    if st.button("Process as NTU List", key=f"ntu_{name}"):
-                        try:
-                            names = st.session_state.gemini_ocr.extract_names_from_image(segment)
-                            for name in names:
-                                if name not in st.session_state.bus_list['NTU']:
-                                    st.session_state.bus_list['NTU'].append(name)
-                            st.success(f"Added {len(names)} names to NTU list")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error: {e}")
-                with cols[2]:
-                    if st.button("Process as JE List", key=f"je_{name}"):
-                        try:
-                            names = st.session_state.gemini_ocr.extract_names_from_image(segment)
-                            for name in names:
-                                if name not in st.session_state.bus_list['Jurong East']:
-                                    st.session_state.bus_list['Jurong East'].append(name)
-                            st.success(f"Added {len(names)} names to JE list")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error: {e}")
-                
-                # Add delete button
-                if st.button("🗑️ Delete Region", key=f"delete_{name}"):
-                    del st.session_state.image_segments[name]
-                    st.success(f"Deleted region: {name}")
-                    st.rerun()    
     def extract_names_from_image(self, image: Image.Image) -> List[str]:
         """Extract passenger names from image using Gemini Vision API"""
         if not self.api_key:
@@ -986,7 +950,7 @@ def main():
             2. Sign in with your Google account
             3. Create a new API key
             4. Copy and paste it below
-            5. Click 'Save API Key AIzaSyDUwRw_QzcA0mT39hiAU6Gd4l0zftXxdII' 
+            5. Click 'Save API Key' 
 
             **Benefits of using Gemini:**
             • Much better text recognition from images
@@ -1336,6 +1300,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
