@@ -14,7 +14,7 @@ import pandas as pd
 import urllib.parse
 from PIL import Image, ImageDraw
 import numpy as np
-
+# Add this import
 # filepath: c:\Users\jmqs4\OneDrive\Documents\Dragon_Boat\BUSFUNCTION\buslist_stream.py
 
 def segment_image_with_sliders(image: Image.Image):
@@ -92,12 +92,13 @@ class GeminiOCR:
     
     def __init__(self, api_key: str = ""):
         self.api_key = api_key
-        self.vision_api_url = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
-        self.text_api_url = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
+        self.vision_api_url = "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent"
+        self.text_api_url = "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent"
     
     def set_api_key(self, api_key: str):
         """Set the Gemini API key"""
         self.api_key = api_key
+
 
     def extract_names_from_image(self, image: Image.Image) -> List[str]:
         """Extract passenger names from image using Gemini Vision API"""
@@ -130,7 +131,7 @@ class GeminiOCR:
                         {"text": prompt},
                         {
                             "inline_data": {
-                                "mime_type": "image/png" if image.format == "PNG" else "image/jpeg",
+                                "mime_type": "image/jpeg",
                                 "data": image_base64
                             }
                         }
@@ -145,12 +146,13 @@ class GeminiOCR:
             # Make API request
             headers = {"Content-Type": "application/json"}
             
-            response = requests.post(
-                f"{self.vision_api_url}?key={self.api_key}",
-                headers=headers,
-                json=payload,
-                timeout=30
-            )
+            # WITH:
+            url = f"{self.vision_api_url}?key={self.api_key}"
+            response = requests.post(url, headers=headers, json=payload, timeout=30)
+
+            print(f"API Response Status: {response.status_code}")  # Debug line
+            if response.status_code != 200:
+                print(f"API Error Response: {response.text}")  # Debug line
             
             if response.status_code == 200:
                 result = response.json()
@@ -179,6 +181,12 @@ class GeminiOCR:
                     return names
                 else:
                     raise Exception("No response from Gemini API")
+            elif response.status_code == 429:
+                raise Exception("API rate limit exceeded. Please wait a moment and try again.")
+            elif response.status_code == 403:
+                raise Exception("API key invalid or quota exceeded. Check your API key and billing.")
+            elif response.status_code == 400:
+                raise Exception("Bad request. Check if your API key has the correct permissions.")
             else:
                 error_msg = f"Gemini API error: {response.status_code}"
                 if response.text:
@@ -979,16 +987,22 @@ def main():
             if st.button("🧪 Test API"):
                 if st.session_state.api_key:
                     try:
-                        result = st.session_state.gemini_ocr.extract_names_from_text("Test message: John Doe, Jane Smith")
-                        if result:
-                            st.success(f"✅ API test successful! Extracted: {', '.join(result)}")
+                        test_url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key={st.session_state.api_key}"
+                        test_payload = {
+                            "contents": [{"parts": [{"text": "Say hello"}]}],
+                            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 10}
+                        }
+                        response = requests.post(test_url, headers={"Content-Type": "application/json"}, json=test_payload, timeout=10)
+                        
+                        if response.status_code == 200:
+                            st.success("✅ API test successful!")
                         else:
-                            st.info("⚠️ API connected but no names extracted from test")
+                            st.error(f"❌ API test failed: {response.status_code} - {response.text}")
                     except Exception as e:
                         st.error(f"❌ API test failed: {str(e)}")
                 else:
                     st.warning("Please save an API key first.")
-        
+                    
         if st.session_state.api_key:
             st.success("✅ API Key configured - Ready to use Gemini AI!")
         else:
@@ -1300,7 +1314,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 
 
