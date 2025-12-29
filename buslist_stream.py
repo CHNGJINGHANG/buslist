@@ -268,6 +268,241 @@ def format_bus_info(settings):
     return output
 
 
+def api_setup():
+    """API Setup section"""
+    st.header("Gemini API Configuration")
+    
+    with st.expander("Instructions"):
+        st.markdown("""
+        1. Get API key from: https://makersuite.google.com/app/apikey
+        2. Paste below and save
+        """)
+    
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        api_key = st.text_input("API Key:", value=st.session_state.api_key, type="password")
+    
+    with col2:
+        if st.button("Save Key"):
+            if api_key.strip():
+                st.session_state.api_key = api_key.strip()
+                st.session_state.gemini_ocr.set_api_key(api_key.strip())
+                st.success("Saved")
+            else:
+                st.warning("Enter valid key")
+    
+    if st.session_state.api_key:
+        st.success("API Ready")
+    else:
+        st.warning("No API key configured")
+
+
+def input_processing():
+    """Input & Processing section"""
+    st.header("Add Passengers")
+    
+    location = st.selectbox("Add to:", ["NTU", "Jurong East"])
+    
+    # Image upload
+    uploaded_file = st.file_uploader("Upload image", type=['jpg', 'jpeg', 'png'])
+    
+    if uploaded_file:
+        image = Image.open(uploaded_file)
+        st.image(image, width=400)
+        
+        if st.button("Extract from Image"):
+            if not st.session_state.api_key:
+                st.error("Configure API key first")
+            else:
+                try:
+                    with st.spinner("Processing..."):
+                        # Get raw OCR text
+                        raw_text = st.session_state.gemini_ocr.extract_text_from_image(image)
+                        
+                        # Show raw text
+                        with st.expander("Raw OCR Text"):
+                            st.text(raw_text)
+                        
+                        # Extract names
+                        names = st.session_state.gemini_ocr.extract_names_from_text(raw_text)
+                        
+                        # Add to list
+                        added = 0
+                        for name in names:
+                            if name not in st.session_state.bus_list[location]:
+                                st.session_state.bus_list[location].append(name)
+                                added += 1
+                        
+                        st.success(f"Added {added} names to {location}")
+                        
+                        # Try to extract bus info
+                        bus_info = st.session_state.gemini_ocr.extract_bus_info(raw_text)
+                        if bus_info['bus_plate'] or bus_info['phone']:
+                            st.session_state.extracted_bus_info = bus_info
+                            st.info(f"Bus info found: {bus_info}")
+                        
+                        # Try to extract date/time
+                        datetime_info = st.session_state.gemini_ocr.extract_datetime_info(raw_text)
+                        if any(datetime_info.values()):
+                            st.session_state.extracted_datetime = datetime_info
+                            st.info(f"Date/time found: {datetime_info}")
+                        
+                        st.rerun()
+                        
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
+    
+    # Text input
+    st.subheader("Or paste text")
+    text_input = st.text_area("Paste here:")
+    
+    if st.button("Extract from Text"):
+        if text_input:
+            try:
+                names = st.session_state.gemini_ocr.extract_names_from_text(text_input)
+                
+                added = 0
+                for name in names:
+                    if name not in st.session_state.bus_list[location]:
+                        st.session_state.bus_list[location].append(name)
+                        added += 1
+                
+                st.success(f"Added {added} names")
+                
+                # Extract other info
+                bus_info = st.session_state.gemini_ocr.extract_bus_info(text_input)
+                if bus_info['bus_plate'] or bus_info['phone']:
+                    st.session_state.extracted_bus_info = bus_info
+                    st.info(f"Bus info: {bus_info}")
+                
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"Error: {str(e)}")
+    
+    # Manual add
+    st.subheader("Manual Entry")
+    manual_name = st.text_input("Add name:")
+    if st.button("Add") and manual_name:
+        formatted = manual_name.strip().title()
+        if formatted not in st.session_state.bus_list[location]:
+            st.session_state.bus_list[location].append(formatted)
+            st.success(f"Added {formatted}")
+            st.rerun()
+    
+    # Show lists
+    st.subheader("Current Passengers")
+    for loc in ["NTU", "Jurong East"]:
+        with st.expander(f"{loc}: {len(st.session_state.bus_list[loc])}"):
+            if st.session_state.bus_list[loc]:
+                for i, name in enumerate(st.session_state.bus_list[loc]):
+                    col1, col2 = st.columns([4, 1])
+                    with col1:
+                        st.text(name)
+                    with col2:
+                        if st.button("Remove", key=f"rm_{loc}_{i}"):
+                            st.session_state.bus_list[loc].remove(name)
+                            st.rerun()
+            else:
+                st.text("No passengers")
+
+
+def bus_settings():
+    """Bus Settings section"""
+    st.header("Bus Settings")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("Date & Time")
+        selected_date = st.date_input("Date:", value=datetime.now() + timedelta(days=1))
+        day = selected_date.strftime("%A")
+        date = selected_date.strftime("%B %d, %Y")
+        
+        st.text(f"Day: {day}")
+        st.text(f"Date: {date}")
+        
+        default_ntu = st.session_state.get('extracted_datetime', {}).get('ntu_time', '0735hrs')
+        default_je = st.session_state.get('extracted_datetime', {}).get('je_time', '0750hrs')
+        
+        ntu_time = st.text_input("NTU Time:", value=default_ntu)
+        je_time = st.text_input("JE Time:", value=default_je)
+    
+    with col2:
+        st.subheader("Bus Info")
+        default_bus = st.session_state.get('extracted_bus_info', {}).get('bus_plate', '')
+        default_phone = st.session_state.get('extracted_bus_info', {}).get('phone', '')
+        
+        bus_number = st.text_input("Bus Plate:", value=default_bus)
+        driver_phone = st.text_input("Phone:", value=default_phone)
+    
+    st.subheader("Locations")
+    ntu_location = st.text_input("NTU:", value="Hall 8 & 9 Bus Stop")
+    je_location = st.text_input("JE:", value="Venture Avenue")
+    
+    st.session_state.settings = {
+        'day': day,
+        'date': date,
+        'ntu_time': ntu_time,
+        'je_time': je_time,
+        'bus_number': bus_number,
+        'driver_phone': driver_phone,
+        'ntu_location': ntu_location,
+        'je_location': je_location
+    }
+
+
+def output_generation():
+    """Output Generation section"""
+    st.header("Generated Output")
+    
+    total = len(st.session_state.bus_list['NTU']) + len(st.session_state.bus_list['Jurong East'])
+    
+    if total == 0:
+        st.warning("No passengers added yet")
+    else:
+        if 'settings' not in st.session_state:
+            tomorrow = datetime.now() + timedelta(days=1)
+            st.session_state.settings = {
+                'day': tomorrow.strftime("%A"),
+                'date': tomorrow.strftime("%B %d, %Y"),
+                'ntu_time': "0735hrs",
+                'je_time': "0750hrs",
+                'bus_number': "",
+                'driver_phone': "",
+                'ntu_location': "Hall 8 & 9 Bus Stop",
+                'je_location': "Venture Avenue"
+            }
+        
+        if st.button("Generate"):
+            output = format_bus_info(st.session_state.settings)
+            st.session_state.generated_output = output
+        
+        if 'generated_output' in st.session_state:
+            st.code(st.session_state.generated_output)
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.download_button(
+                    "Download Text",
+                    data=st.session_state.generated_output,
+                    file_name=f"bus_list_{datetime.now().strftime('%Y%m%d')}.txt",
+                    mime="text/plain"
+                )
+            
+            with col2:
+                st.download_button(
+                    "Download Markdown",
+                    data=st.session_state.generated_output,
+                    file_name=f"bus_list_{datetime.now().strftime('%Y%m%d')}.md",
+                    mime="text/markdown"
+                )
+            
+            st.metric("Total Passengers", total)
+
+
 def create_schedule():
     """Create new schedule entries"""
     st.subheader("Add Schedule Entry")
@@ -515,10 +750,29 @@ def main():
     
     st.title("Bus Passenger List Manager")
     
-    tab = st.sidebar.radio("Navigation:", 
-                          ["API Setup", "Input & Processing", "Bus Settings", "Output", "Schedule"])
+    tab = st.sidebar.radio("Navigation:", ["Passenger List", "Schedule"])
     
-    if tab == "API Setup":
+    if tab == "Passenger List":
+        subtab = st.radio("", ["API Setup", "Input & Processing", "Bus Settings", "Output"], horizontal=True)
+        
+        if subtab == "API Setup":
+            api_setup()
+        elif subtab == "Input & Processing":
+            input_processing()
+        elif subtab == "Bus Settings":
+            bus_settings()
+        else:
+            output_generation()
+    
+    elif tab == "Schedule":
+        subtab = st.radio("", ["Create Schedule", "View & Manage", "Send Email"], horizontal=True)
+        
+        if subtab == "Create Schedule":
+            create_schedule()
+        elif subtab == "View & Manage":
+            view_schedule()
+        else:
+            send_schedule_email()
         st.header("Gemini API Configuration")
         
         with st.expander("Instructions"):
