@@ -268,6 +268,232 @@ def format_bus_info(settings):
     return output
 
 
+def create_schedule():
+    """Create new schedule entries"""
+    st.subheader("Add Schedule Entry")
+    
+    today = datetime.now()
+    upcoming_saturday = today + timedelta((5 - today.weekday()) % 7)
+    
+    with st.form("schedule_form"):
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            date = st.date_input("Date", value=upcoming_saturday)
+            activity = st.text_input("Activity", value="Dragon Boat (M)")
+            pickup_point = st.text_input("Pick-Up Point", value="NTU Hall 8 & 9 Bus Stop")
+        
+        with col2:
+            departure_time = st.text_input("Departure Time", value="0740 hrs")
+            bus_capacity = st.selectbox("Bus Capacity", ["1 x 20 seater bus", "1 x 40 seater bus"])
+            return_time = st.text_input("Return Time", value="NIL")
+        
+        with col3:
+            contact_name = st.text_input("Contact Name", value="Jing Hang")
+            contact_number = st.text_input("Contact Number", value="88479136")
+        
+        st.subheader("Destinations")
+        num_destinations = st.number_input("Number of Destinations", min_value=1, max_value=5, value=2)
+        
+        destinations = []
+        for i in range(num_destinations):
+            dest = st.text_input(f"Destination {i+1}", 
+                                value="Venture Ave (Jurong East)" if i == 0 else "SDBA" if i == 1 else "",
+                                key=f"dest_{i}")
+            if dest:
+                destinations.append(dest)
+        
+        submitted = st.form_submit_button("Add to Schedule")
+        
+        if submitted:
+            new_entry = {
+                'date': date.strftime("%d/%m/%Y"),
+                'day': date.strftime("%A").upper(),
+                'activity': activity,
+                'pickup_point': pickup_point,
+                'departure_time': departure_time,
+                'destinations': destinations,
+                'return_time': return_time,
+                'contact_name': contact_name,
+                'contact_number': contact_number,
+                'bus_capacity': bus_capacity
+            }
+            
+            st.session_state.schedule_data.append(new_entry)
+            st.success(f"Added schedule for {new_entry['date']} ({new_entry['day']})")
+            st.rerun()
+
+
+def view_schedule():
+    """View and manage schedule"""
+    st.subheader("Current Schedule")
+    
+    if not st.session_state.schedule_data:
+        st.info("No schedule entries yet")
+        return
+    
+    display_data = []
+    for entry in st.session_state.schedule_data:
+        destinations_str = "\n".join([f"{i+1}. {dest}" for i, dest in enumerate(entry['destinations'])])
+        
+        display_data.append({
+            'Date': f"{entry['date']}\n{entry['day']}",
+            'Activity': entry['activity'],
+            'Pick-Up': entry['pickup_point'],
+            'Time': entry['departure_time'],
+            'Destination': destinations_str,
+            'Return': entry['return_time'],
+            'Contact': f"{entry['contact_name']}\n{entry['contact_number']}",
+            'Seats': entry['bus_capacity']
+        })
+    
+    df = pd.DataFrame(display_data)
+    st.dataframe(df, use_container_width=True, height=400)
+    
+    st.subheader("Remove Entry")
+    if len(st.session_state.schedule_data) > 0:
+        selected_index = st.selectbox(
+            "Select entry to remove:",
+            range(len(st.session_state.schedule_data)),
+            format_func=lambda x: f"{st.session_state.schedule_data[x]['date']} - {st.session_state.schedule_data[x]['activity']}"
+        )
+        
+        if st.button("Remove Selected Entry"):
+            st.session_state.schedule_data.pop(selected_index)
+            st.success("Entry removed")
+            st.rerun()
+        
+        if st.button("Clear All Schedules"):
+            st.session_state.schedule_data = []
+            st.success("All schedules cleared")
+            st.rerun()
+
+
+def generate_schedule_html():
+    """Generate HTML table for email"""
+    if not st.session_state.schedule_data:
+        return ""
+    
+    html = """<table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%;">
+    <tr style="background-color: #f2f2f2;">
+        <th>Date (2025)</th>
+        <th>Activity</th>
+        <th>Pick-Up Point</th>
+        <th>Departure Time</th>
+        <th>Destination</th>
+        <th>Return Time</th>
+        <th>Name & Contact No.</th>
+        <th>Seats</th>
+        <th>Price</th>
+    </tr>"""
+    
+    for entry in st.session_state.schedule_data:
+        destinations_html = "<br>".join([f"{i+1}. {dest}" for i, dest in enumerate(entry['destinations'])])
+        
+        html += f"""
+    <tr>
+        <td>{entry['date']}<br>{entry['day']}</td>
+        <td>{entry['activity']}</td>
+        <td>{entry['pickup_point']}</td>
+        <td>{entry['departure_time']}</td>
+        <td>{destinations_html}</td>
+        <td>{entry['return_time']}</td>
+        <td>{entry['contact_name']},<br>{entry['contact_number']}</td>
+        <td>{entry['bus_capacity']}</td>
+        <td></td>
+    </tr>"""
+    
+    html += "</table>"
+    return html
+
+
+def send_schedule_email():
+    """Generate mailto link for schedule email"""
+    st.subheader("Email Schedule")
+    
+    # Manage recipients
+    with st.expander("Manage Recipients"):
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            new_email = st.text_input("Add recipient email:", placeholder="example@email.com")
+        with col2:
+            if st.button("Add"):
+                if new_email and '@' in new_email:
+                    if new_email not in st.session_state.recipient_emails:
+                        st.session_state.recipient_emails.append(new_email)
+                        st.success(f"Added: {new_email}")
+                        st.rerun()
+                    else:
+                        st.warning("Email already exists")
+                else:
+                    st.warning("Enter valid email")
+        
+        if st.session_state.recipient_emails:
+            st.write("Current recipients:")
+            for i, email in enumerate(st.session_state.recipient_emails):
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    st.text(email)
+                with col2:
+                    if st.button("Remove", key=f"rm_email_{i}"):
+                        st.session_state.recipient_emails.remove(email)
+                        st.rerun()
+    
+    # Email composition
+    st.subheader("Compose Email")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.session_state.recipient_emails:
+            selected_recipients = st.multiselect(
+                "Recipients:",
+                st.session_state.recipient_emails,
+                default=st.session_state.recipient_emails
+            )
+            recipient = ','.join(selected_recipients)
+        else:
+            recipient = st.text_input("Recipient Email:")
+    
+    with col2:
+        cc_email = st.text_input("CC (Optional):")
+    
+    recipient_name = st.text_input("Recipient's Name:", placeholder="Ms. Ivyna")
+    sender_name = st.text_input("Your Name:", placeholder="Your name")
+    
+    if st.button("Generate Mailto Link", type="primary"):
+        if not recipient:
+            st.warning("Please enter recipient email")
+            return
+        
+        if not st.session_state.schedule_data:
+            st.warning("No schedule data to send")
+            return
+        
+        subject = "NTUDB(M) Bus Schedule"
+        html_table = generate_schedule_html()
+        
+        email_body = f"""Dear {recipient_name if recipient_name else 'Recipient'},
+
+The Bus Schedule for NTU Dragon Boat (M) is as follows:
+
+{html_table}
+
+Thank you for your support!
+
+Warm regards,
+{sender_name if sender_name else 'NTU Dragon Boat (M)'}"""
+        
+        mailto_link = f"mailto:{recipient}?subject={urllib.parse.quote(subject)}"
+        if cc_email:
+            mailto_link += f"&cc={urllib.parse.quote(cc_email)}"
+        mailto_link += f"&body={urllib.parse.quote(email_body)}"
+        
+        st.markdown(f'[Click here to open email client]({mailto_link})', unsafe_allow_html=True)
+        st.success("Mailto link generated! Click the link above.")
+        st.info("If email app doesn't open automatically, open it manually to send.")
+
+
 def main():
     st.set_page_config(
         page_title="Bus List Manager",
@@ -511,7 +737,15 @@ def main():
     
     elif tab == "Schedule":
         st.header("Schedule Management")
-        st.info("Schedule feature - implementation simplified")
+        
+        subtab = st.radio("", ["Create Schedule", "View & Manage", "Send Email"], horizontal=True)
+        
+        if subtab == "Create Schedule":
+            create_schedule()
+        elif subtab == "View & Manage":
+            view_schedule()
+        else:
+            send_schedule_email()
     
     # Sidebar status
     st.sidebar.markdown("---")
