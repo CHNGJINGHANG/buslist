@@ -319,9 +319,19 @@ def create_schedule():
                 'bus_capacity': bus_capacity
             }
             
-            st.session_state.schedule_data.append(new_entry)
-            st.success(f"Added schedule for {new_entry['date']} ({new_entry['day']})")
-            st.rerun()
+            # Check for duplicate date and time
+            duplicate_found = False
+            for existing in st.session_state.schedule_data:
+                if (existing['date'] == new_entry['date'] and 
+                    existing['departure_time'] == new_entry['departure_time']):
+                    duplicate_found = True
+                    st.warning(f"Schedule already exists for {new_entry['date']} at {new_entry['departure_time']}")
+                    break
+            
+            if not duplicate_found:
+                st.session_state.schedule_data.append(new_entry)
+                st.success(f"Added schedule for {new_entry['date']} ({new_entry['day']})")
+                st.rerun()
 
 
 def view_schedule():
