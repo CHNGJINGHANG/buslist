@@ -247,17 +247,22 @@ def send_schedule_email():
             st.warning("Please enter at least one recipient email")
             return
         
-        recipient = ';'.join(selected_recipients)
+        recipient = ','.join(selected_recipients)  # Use comma for multiple recipients
         subject = "NTUDB(M) Bus Schedule"
         
-        # Create HTML email body
+        # Create HTML email body with proper spacing
         html_body = f"""<html>
-<body style="font-family: Arial, sans-serif;">
+<body style="font-family: Arial, sans-serif; line-height: 1.6;">
 <p>Dear {html.escape(recipient_name if recipient_name else 'Recipient')},</p>
 
 <p>The Bus Schedule for NTU Dragon Boat (M) is as follows:</p>
 
+<br>
+
 {html_table}
+
+<br>
+<br>
 
 <p>Thank you for your support!</p>
 
