@@ -266,47 +266,25 @@ def send_schedule_email():
 </body>
 </html>"""
         
-        # Try to create mailto link with HTML (note: many email clients don't support HTML in mailto)
+        # Create mailto link with HTML body
         mailto_link = f"mailto:{recipient}?subject={urllib.parse.quote(subject)}"
         
         if cc_email:
             mailto_link += f"&cc={urllib.parse.quote(cc_email)}"
         
-        # For mailto, we'll use a plain text version
-        text_body = f"""Dear {recipient_name if recipient_name else 'Recipient'},
-
-The Bus Schedule for NTU Dragon Boat (M) is as follows:
-
-"""
+        # Use HTML body directly
+        mailto_link += f"&body={urllib.parse.quote(html_body)}"
         
-        for entry in st.session_state.schedule_data:
-            text_body += f"{entry['date']} ({entry['day']})\n"
-            text_body += f"Activity: {entry['activity']}\n"
-            text_body += f"Pick-Up: {entry['pickup_point']}\n"
-            text_body += f"Departure Time: {entry['departure_time']}\n"
-            text_body += f"Destinations: " + ", ".join([f"{i+1}. {dest}" for i, dest in enumerate(entry['destinations'])]) + "\n"
-            text_body += f"Return Time: {entry['return_time']}\n"
-            text_body += f"Contact: {entry['contact_name']}, {entry['contact_number']}\n"
-            text_body += f"Seats: {entry['bus_capacity']}\n"
-            text_body += "-" * 60 + "\n\n"
-        
-        text_body += f"""
-Thank you for your support!
-
-Warm regards,
-{sender_name if sender_name else 'NTU Dragon Boat (M)'}"""
-        
-        mailto_link += f"&body={urllib.parse.quote(text_body)}"
-        
-        # Display options
+        # Display the link
         st.success("✅ Email content generated!")
         
-        st.markdown(f'<a href="{mailto_link}" style="display: inline-block; padding: 12px 24px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">📧 Open Email Client (Plain Text)</a>', unsafe_allow_html=True)
+        st.markdown(f'<a href="{mailto_link}" target="_blank" style="display: inline-block; padding: 12px 24px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 10px 0;">📧 Open Email Client with HTML Table</a>', unsafe_allow_html=True)
         
-        st.info("💡 **Note:** The link above opens your email client with plain text. For the HTML table format, copy the HTML code below and paste it into your email client (most email clients support pasting HTML).")
+        st.info("💡 **Instructions:**\n1. Click the button above to open your email client\n2. The HTML table should appear formatted in the email\n3. If the table doesn't appear formatted, use Gmail web interface or copy the HTML below")
         
-        # Provide HTML code to copy
-        with st.expander("📋 Copy HTML Email Content"):
+        # Provide HTML code as backup
+        with st.expander("📋 Alternative: Copy & Paste HTML (if mailto doesn't work)"):
+            st.markdown("**Instructions:** Copy the HTML below and paste it directly into Gmail or Outlook compose window")
             st.code(html_body, language="html")
             st.download_button(
                 "📥 Download HTML Email",
@@ -314,10 +292,6 @@ Warm regards,
                 file_name=f"email_schedule_{datetime.now().strftime('%Y%m%d')}.html",
                 mime="text/html"
             )
-        
-        # Also provide plain text version
-        with st.expander("📋 Copy Plain Text Email Content"):
-            st.text_area("Plain Text Version:", text_body, height=300)
 
 
 def main():
