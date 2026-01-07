@@ -2,227 +2,13 @@ import streamlit as st
 from datetime import datetime, timedelta
 import pandas as pd
 import urllib.parse
+import html
 
 def initialize_session_state():
-    if 'bus_list' not in st.session_state:
-        st.session_state.bus_list = {}
-    if 'locations' not in st.session_state:
-        st.session_state.locations = ['NTU', 'Jurong East']
     if 'schedule_data' not in st.session_state:
         st.session_state.schedule_data = []
     if 'recipient_emails' not in st.session_state:
         st.session_state.recipient_emails = []
-    
-    # Initialize bus_list for all locations
-    for loc in st.session_state.locations:
-        if loc not in st.session_state.bus_list:
-            st.session_state.bus_list[loc] = []
-
-
-def format_bus_info(settings):
-    """Format the bus information in the new style"""
-    output = f"Bus Information - {settings['day']}, {settings['date']}\n"
-    output += "Take note of the bus timing\n"
-    
-    if settings['bus_number']:
-        output += f"Bus Plate Number: {settings['bus_number']}\n"
-    if settings['driver_phone']:
-        output += f"Phone Number: {settings['driver_phone']}\n"
-    
-    section_num = 1
-    
-    for location in st.session_state.locations:
-        if st.session_state.bus_list.get(location):
-            time_key = location.lower().replace(' ', '_') + '_time'
-            location_key = location.lower().replace(' ', '_') + '_location'
-            
-            time_val = settings.get(time_key, '')
-            location_val = settings.get(location_key, '')
-            
-            output += f"𝟏. {location} ({time_val})\n" if section_num == 1 else f"𝟐. {location} ({time_val})\n"
-            output += f"Location: {location_val}\n"
-            
-            for name in sorted(st.session_state.bus_list[location]):
-                output += f"{name}\n"
-            output += "\n"
-            section_num += 1
-    
-    return output
-
-
-def passenger_management():
-    """Passenger List Management"""
-    st.header("📝 Passenger List Management")
-    
-    # Location Management
-    with st.expander("➕ Manage Locations"):
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            new_location = st.text_input("Add new location:", placeholder="e.g., Clementi")
-        with col2:
-            if st.button("Add Location"):
-                if new_location and new_location not in st.session_state.locations:
-                    st.session_state.locations.append(new_location)
-                    st.session_state.bus_list[new_location] = []
-                    st.success(f"Added: {new_location}")
-                    st.rerun()
-        
-        if len(st.session_state.locations) > 0:
-            st.write("**Current Locations:**")
-            for i, loc in enumerate(st.session_state.locations):
-                col1, col2 = st.columns([4, 1])
-                with col1:
-                    st.text(f"• {loc}")
-                with col2:
-                    if st.button("Remove", key=f"rm_loc_{i}"):
-                        if loc in st.session_state.bus_list:
-                            del st.session_state.bus_list[loc]
-                        st.session_state.locations.remove(loc)
-                        st.rerun()
-    
-    st.markdown("---")
-    
-    # Add Passengers
-    st.subheader("Add Passengers")
-    
-    location = st.selectbox("Select Location:", st.session_state.locations)
-    
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        manual_name = st.text_input("Enter passenger name:")
-    with col2:
-        st.write("")
-        st.write("")
-        if st.button("➕ Add", type="primary"):
-            if manual_name:
-                formatted = manual_name.strip().title()
-                if formatted not in st.session_state.bus_list[location]:
-                    st.session_state.bus_list[location].append(formatted)
-                    st.success(f"✓ Added {formatted} to {location}")
-                    st.rerun()
-                else:
-                    st.warning("Name already exists in this location")
-    
-    st.markdown("---")
-    
-    # Show Passenger Lists
-    st.subheader("Current Passengers")
-    
-    for loc in st.session_state.locations:
-        count = len(st.session_state.bus_list.get(loc, []))
-        with st.expander(f"📍 {loc}: {count} passenger(s)"):
-            if st.session_state.bus_list.get(loc):
-                for i, name in enumerate(st.session_state.bus_list[loc]):
-                    col1, col2 = st.columns([5, 1])
-                    with col1:
-                        st.text(f"• {name}")
-                    with col2:
-                        if st.button("❌", key=f"rm_{loc}_{i}"):
-                            st.session_state.bus_list[loc].remove(name)
-                            st.rerun()
-            else:
-                st.info("No passengers added yet")
-    
-    # Summary
-    total = sum(len(st.session_state.bus_list.get(loc, [])) for loc in st.session_state.locations)
-    st.metric("Total Passengers", total)
-
-
-def bus_settings():
-    """Bus Settings"""
-    st.header("⚙️ Bus Settings")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("📅 Date & Time")
-        selected_date = st.date_input("Date:", value=datetime.now() + timedelta(days=1))
-        day = selected_date.strftime("%A")
-        date = selected_date.strftime("%b %d, %Y").upper()
-        
-        st.info(f"**{day}, {date}**")
-    
-    with col2:
-        st.subheader("🚌 Bus Information")
-        bus_number = st.text_input("Bus Plate Number:", placeholder="e.g., PC8811T")
-        driver_phone = st.text_input("Phone Number:", placeholder="e.g., 97740325")
-    
-    st.markdown("---")
-    st.subheader("📍 Locations & Timings")
-    
-    settings = {
-        'day': day,
-        'date': date,
-        'bus_number': bus_number,
-        'driver_phone': driver_phone
-    }
-    
-    for loc in st.session_state.locations:
-        st.write(f"**{loc}**")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            time_val = st.text_input(f"Time:", value="0725hrs", key=f"time_{loc}")
-        with col2:
-            location_val = st.text_input(f"Location:", value=f"{loc} Bus Stop", key=f"loc_{loc}")
-        
-        settings[f"{loc.lower().replace(' ', '_')}_time"] = time_val
-        settings[f"{loc.lower().replace(' ', '_')}_location"] = location_val
-    
-    st.session_state.settings = settings
-
-
-def output_generation():
-    """Output Generation"""
-    st.header("📄 Generate Output")
-    
-    total = sum(len(st.session_state.bus_list.get(loc, [])) for loc in st.session_state.locations)
-    
-    if total == 0:
-        st.warning("⚠️ No passengers added yet. Please add passengers first.")
-        return
-    
-    if 'settings' not in st.session_state:
-        tomorrow = datetime.now() + timedelta(days=1)
-        st.session_state.settings = {
-            'day': tomorrow.strftime("%A"),
-            'date': tomorrow.strftime("%b %d, %Y").upper(),
-            'bus_number': "",
-            'driver_phone': ""
-        }
-        for loc in st.session_state.locations:
-            st.session_state.settings[f"{loc.lower().replace(' ', '_')}_time"] = "0725hrs"
-            st.session_state.settings[f"{loc.lower().replace(' ', '_')}_location"] = f"{loc} Bus Stop"
-    
-    if st.button("🔄 Generate Output", type="primary"):
-        output = format_bus_info(st.session_state.settings)
-        st.session_state.generated_output = output
-        st.success("✓ Output generated successfully!")
-    
-    if 'generated_output' in st.session_state:
-        st.subheader("Preview:")
-        st.text_area("Output", st.session_state.generated_output, height=400)
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.download_button(
-                "📥 Download as TXT",
-                data=st.session_state.generated_output,
-                file_name=f"bus_list_{datetime.now().strftime('%Y%m%d')}.txt",
-                mime="text/plain"
-            )
-        
-        with col2:
-            st.download_button(
-                "📥 Download as MD",
-                data=st.session_state.generated_output,
-                file_name=f"bus_list_{datetime.now().strftime('%Y%m%d')}.md",
-                mime="text/markdown"
-            )
-        
-        with col3:
-            st.metric("Total", total)
 
 
 def create_schedule():
@@ -345,9 +131,9 @@ def generate_schedule_html():
     if not st.session_state.schedule_data:
         return ""
     
-    html = """<table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif;">
+    html_content = """<table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif;">
     <thead>
-    <tr style="background-color: #4CAF50; color: white;">
+    <tr style="background-color: #f2f2f2;">
         <th>Date (2025)</th>
         <th>Activity</th>
         <th>Pick-Up Point</th>
@@ -364,7 +150,7 @@ def generate_schedule_html():
     for entry in st.session_state.schedule_data:
         destinations_html = "<br>".join([f"{i+1}. {dest}" for i, dest in enumerate(entry['destinations'])])
         
-        html += f"""
+        html_content += f"""
     <tr>
         <td>{entry['date']}<br><strong>{entry['day']}</strong></td>
         <td>{entry['activity']}</td>
@@ -377,10 +163,10 @@ def generate_schedule_html():
         <td></td>
     </tr>"""
     
-    html += """
+    html_content += """
     </tbody>
     </table>"""
-    return html
+    return html_content
 
 
 def send_schedule_email():
@@ -447,105 +233,129 @@ def send_schedule_email():
     recipient_name = st.text_input("Recipient's Name:", placeholder="Ms. Ivyna")
     sender_name = st.text_input("Your Name:", placeholder="Your name")
     
-    if st.button("📧 Open Email Client", type="primary"):
+    st.markdown("---")
+    
+    # Preview HTML table
+    st.subheader("📋 Email Preview")
+    html_table = generate_schedule_html()
+    st.markdown(html_table, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    if st.button("📧 Generate Email", type="primary"):
         if not selected_recipients:
             st.warning("Please enter at least one recipient email")
             return
         
-        recipient = ','.join(selected_recipients)
+        recipient = ';'.join(selected_recipients)
         subject = "NTUDB(M) Bus Schedule"
-        html_table = generate_schedule_html()
         
-        # Create plain text version for email body
-        text_schedule = "\n\nSchedule Details:\n"
-        for entry in st.session_state.schedule_data:
-            text_schedule += f"\n{entry['date']} ({entry['day']})\n"
-            text_schedule += f"Activity: {entry['activity']}\n"
-            text_schedule += f"Pick-Up: {entry['pickup_point']} at {entry['departure_time']}\n"
-            text_schedule += f"Destinations: {', '.join(entry['destinations'])}\n"
-            text_schedule += f"Contact: {entry['contact_name']} ({entry['contact_number']})\n"
-            text_schedule += "-" * 50 + "\n"
+        # Create HTML email body
+        html_body = f"""<html>
+<body style="font-family: Arial, sans-serif;">
+<p>Dear {html.escape(recipient_name if recipient_name else 'Recipient')},</p>
+
+<p>The Bus Schedule for NTU Dragon Boat (M) is as follows:</p>
+
+{html_table}
+
+<p>Thank you for your support!</p>
+
+<p>Warm regards,<br>
+{html.escape(sender_name if sender_name else 'NTU Dragon Boat (M)')}</p>
+</body>
+</html>"""
         
-        email_body = f"Dear {recipient_name if recipient_name else 'Recipient'},\n\n"
-        email_body += "The Bus Schedule for NTU Dragon Boat (M) is as follows:\n"
-        email_body += text_schedule
-        email_body += f"\n\nThank you for your support!\n\n"
-        email_body += f"Warm regards,\n{sender_name if sender_name else 'NTU Dragon Boat (M)'}"
-        
-        # Build mailto URL
-        mailto_parts = [f"mailto:{recipient}"]
-        params = []
-        
-        params.append(f"subject={urllib.parse.quote(subject)}")
+        # Try to create mailto link with HTML (note: many email clients don't support HTML in mailto)
+        mailto_link = f"mailto:{recipient}?subject={urllib.parse.quote(subject)}"
         
         if cc_email:
-            params.append(f"cc={urllib.parse.quote(cc_email)}")
+            mailto_link += f"&cc={urllib.parse.quote(cc_email)}"
         
-        params.append(f"body={urllib.parse.quote(email_body)}")
+        # For mailto, we'll use a plain text version
+        text_body = f"""Dear {recipient_name if recipient_name else 'Recipient'},
+
+The Bus Schedule for NTU Dragon Boat (M) is as follows:
+
+"""
         
-        mailto_link = mailto_parts[0] + "?" + "&".join(params)
+        for entry in st.session_state.schedule_data:
+            text_body += f"{entry['date']} ({entry['day']})\n"
+            text_body += f"Activity: {entry['activity']}\n"
+            text_body += f"Pick-Up: {entry['pickup_point']}\n"
+            text_body += f"Departure Time: {entry['departure_time']}\n"
+            text_body += f"Destinations: " + ", ".join([f"{i+1}. {dest}" for i, dest in enumerate(entry['destinations'])]) + "\n"
+            text_body += f"Return Time: {entry['return_time']}\n"
+            text_body += f"Contact: {entry['contact_name']}, {entry['contact_number']}\n"
+            text_body += f"Seats: {entry['bus_capacity']}\n"
+            text_body += "-" * 60 + "\n\n"
         
-        # Display the link
-        st.markdown(f'<a href="{mailto_link}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px;">📧 Click here to open email client</a>', unsafe_allow_html=True)
+        text_body += f"""
+Thank you for your support!
+
+Warm regards,
+{sender_name if sender_name else 'NTU Dragon Boat (M)'}"""
         
-        st.success("✓ Email link generated! Click the link above to open your email client.")
-        st.info("💡 Tip: If your email client doesn't open automatically, copy the schedule text below and paste it into your email manually.")
+        mailto_link += f"&body={urllib.parse.quote(text_body)}"
         
-        with st.expander("📋 Copy Schedule Text"):
-            st.text_area("Schedule Text:", email_body, height=300)
+        # Display options
+        st.success("✅ Email content generated!")
+        
+        st.markdown(f'<a href="{mailto_link}" style="display: inline-block; padding: 12px 24px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">📧 Open Email Client (Plain Text)</a>', unsafe_allow_html=True)
+        
+        st.info("💡 **Note:** The link above opens your email client with plain text. For the HTML table format, copy the HTML code below and paste it into your email client (most email clients support pasting HTML).")
+        
+        # Provide HTML code to copy
+        with st.expander("📋 Copy HTML Email Content"):
+            st.code(html_body, language="html")
+            st.download_button(
+                "📥 Download HTML Email",
+                data=html_body,
+                file_name=f"email_schedule_{datetime.now().strftime('%Y%m%d')}.html",
+                mime="text/html"
+            )
+        
+        # Also provide plain text version
+        with st.expander("📋 Copy Plain Text Email Content"):
+            st.text_area("Plain Text Version:", text_body, height=300)
 
 
 def main():
     st.set_page_config(
-        page_title="Bus List Manager",
-        page_icon="🚌",
+        page_title="Bus Schedule Manager",
+        page_icon="📅",
         layout="wide"
     )
     
     initialize_session_state()
     
-    st.title("🚌 Bus Passenger List Manager")
+    st.title("📅 Bus Schedule Manager")
+    st.markdown("### NTU Dragon Boat (M)")
     
     # Main tabs
-    tab = st.sidebar.radio("📋 Navigation:", ["Passenger List", "Schedule Manager"])
+    tabs = st.tabs(["➕ Create Schedule", "📋 View & Manage", "📧 Send Email"])
     
-    if tab == "Passenger List":
-        subtabs = st.tabs(["📝 Add Passengers", "⚙️ Bus Settings", "📄 Generate Output"])
-        
-        with subtabs[0]:
-            passenger_management()
-        
-        with subtabs[1]:
-            bus_settings()
-        
-        with subtabs[2]:
-            output_generation()
+    with tabs[0]:
+        create_schedule()
     
-    elif tab == "Schedule Manager":
-        subtabs = st.tabs(["➕ Create Schedule", "📋 View & Manage", "📧 Send Email"])
-        
-        with subtabs[0]:
-            create_schedule()
-        
-        with subtabs[1]:
-            view_schedule()
-        
-        with subtabs[2]:
-            send_schedule_email()
+    with tabs[1]:
+        view_schedule()
     
-    # Sidebar status
+    with tabs[2]:
+        send_schedule_email()
+    
+    # Sidebar info
     st.sidebar.markdown("---")
     st.sidebar.subheader("📊 Status")
+    st.sidebar.metric("Total Schedules", len(st.session_state.schedule_data))
     
-    total = sum(len(st.session_state.bus_list.get(loc, [])) for loc in st.session_state.locations)
-    st.sidebar.metric("Total Passengers", total)
-    
-    for loc in st.session_state.locations:
-        count = len(st.session_state.bus_list.get(loc, []))
-        st.sidebar.text(f"{loc}: {count}")
+    if st.session_state.schedule_data:
+        st.sidebar.write("**Upcoming Schedules:**")
+        for entry in st.session_state.schedule_data[:5]:  # Show first 5
+            st.sidebar.text(f"• {entry['date']} - {entry['activity']}")
     
     st.sidebar.markdown("---")
-    st.sidebar.info("💡 **Quick Tips:**\n\n• Add locations in 'Manage Locations'\n• Input passengers manually\n• Configure settings before generating output")
+    st.sidebar.info("💡 **Quick Guide:**\n\n1. Create schedules with details\n2. Review and manage entries\n3. Generate and send emails")
 
 
 if __name__ == "__main__":
